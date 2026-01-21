@@ -1,0 +1,57 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.directory
+
+# Editor files
+*.swp
+*.swo
+*.swn
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Development files
+node_modules/
+npm-debug.log
+yarn-error.log
+.env
+.env.local
+
+# Build artifacts
+dist/
+build/
+*.zip
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.log
+
+# Extension packaging
+*.crx
+*.pem
+*.key
+
+# Helper scripts (not needed for distribution)
+create-icons.py
+create-icons.sh
+verify-extension.sh
+
+# Documentation files (keep main docs)
+PROJECT_SUMMARY.md
+INSTALL.md
+QUICK_START.md
+icons/create-icons.html

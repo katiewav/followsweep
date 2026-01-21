@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FollowSweep</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>FollowSweep</h1>
+      <p class="subtitle">Review your X.com following list</p>
+    </header>
+
+    <!-- Scanning Section -->
+    <section id="scanSection" class="section">
+      <div class="scan-controls">
+        <button id="scanBtn" class="btn btn-primary">
+          <span class="icon">🔍</span> Scan Following
+        </button>
+        <div class="scan-settings">
+          <label for="maxAccounts">Max accounts:</label>
+          <input type="number" id="maxAccounts" min="10" max="10000" value="200">
+        </div>
+      </div>
+      <div id="scanStatus" class="status hidden"></div>
+      <div id="scanProgress" class="progress-bar hidden">
+        <div id="scanProgressBar" class="progress-fill"></div>
+      </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section id="statsSection" class="section">
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Total</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statReviewed">0</div>
+          <div class="stat-label">Reviewed</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statKept">0</div>
+          <div class="stat-label">Kept</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="statUnfollow">0</div>
+          <div class="stat-label">Unfollow</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Search/Filter Section -->
+    <section id="filterSection" class="section">
+      <input type="text" id="searchInput" placeholder="Search by handle or name..." class="search-input">
+    </section>
+
+    <!-- Review Section -->
+    <section id="reviewSection" class="section">
+      <div id="accountCard" class="account-card hidden">
+        <div class="account-header">
+          <img id="accountAvatar" class="avatar" src="" alt="Avatar">
+          <div class="account-info">
+            <div class="account-name" id="accountName"></div>
+            <div class="account-handle" id="accountHandle"></div>
+          </div>
+        </div>
+        <div class="account-bio" id="accountBio"></div>
+        <div class="account-meta">
+          <span id="accountProgress"></span>
+        </div>
+      </div>
+
+      <div id="noAccountsMessage" class="message hidden">
+        <p>No accounts to review. Click "Scan Following" to start.</p>
+      </div>
+
+      <div id="completedMessage" class="message hidden">
+        <p>✅ All accounts reviewed!</p>
+      </div>
+
+      <div class="review-controls hidden" id="reviewControls">
+        <button id="backBtn" class="btn btn-secondary" title="Previous (B)">
+          ← Back
+        </button>
+        <button id="skipBtn" class="btn btn-secondary" title="Skip (S)">
+          Skip
+        </button>
+        <button id="keepBtn" class="btn btn-success" title="Keep (K)">
+          ✓ Keep
+        </button>
+        <button id="unfollowBtn" class="btn btn-danger" title="Unfollow (U)">
+          ✗ Unfollow
+        </button>
+      </div>
+
+      <div class="keyboard-hints">
+        <span>K=Keep</span>
+        <span>U=Unfollow</span>
+        <span>S=Skip</span>
+        <span>B=Back</span>
+      </div>
+    </section>
+
+    <!-- Export Section -->
+    <section id="exportSection" class="section">
+      <button id="exportBtn" class="btn btn-secondary btn-full">
+        <span class="icon">💾</span> Export CSV
+      </button>
+      <button id="clearBtn" class="btn btn-secondary btn-full">
+        <span class="icon">🗑️</span> Clear All Data
+      </button>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
