@@ -135,13 +135,6 @@ function showSearchDropdown(query) {
   });
 }
 
-// Hide dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  if (searchInput && searchDropdown && !searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
-    searchDropdown.classList.add('hidden');
-  }
-});
-
 // Update UI
 async function updateUI() {
   updateStats();
@@ -288,6 +281,13 @@ function setupEventListeners() {
   searchInput.addEventListener('focus', (e) => {
     if (e.target.value) {
       showSearchDropdown(e.target.value);
+    }
+  });
+
+  // Hide dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+      searchDropdown.classList.add('hidden');
     }
   });
 
