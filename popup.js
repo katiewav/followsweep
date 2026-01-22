@@ -7,7 +7,7 @@ let filterQuery = '';
 // DOM elements - will be initialized after DOM is ready
 let scanBtn, scanStatus, scanProgress, scanProgressBar, maxAccountsInput;
 let statTotal, statReviewed, statKept, statUnfollow;
-let searchInput, accountCard, noAccountsMessage, completedMessage, reviewControls;
+let searchInput, searchDropdown, accountCard, noAccountsMessage, completedMessage, reviewControls;
 let accountAvatar, accountName, accountHandle, accountBio, accountProgress, followsYouBadge;
 let backBtn, skipBtn, keepBtn, unfollowBtn;
 let exportBtn, clearBtn;
@@ -26,6 +26,7 @@ function initDOMElements() {
   statUnfollow = document.getElementById('statUnfollow');
 
   searchInput = document.getElementById('searchInput');
+  searchDropdown = document.getElementById('searchDropdown');
   accountCard = document.getElementById('accountCard');
   noAccountsMessage = document.getElementById('noAccountsMessage');
   completedMessage = document.getElementById('completedMessage');
@@ -81,38 +82,65 @@ async function saveAccounts() {
   await chrome.storage.local.set({ accounts, currentIndex });
 }
 
-// Apply search filter
-function applyFilter() {
-  if (!filterQuery) {
-    // No filter, don't change anything
+// Show search dropdown with matching accounts
+function showSearchDropdown(query) {
+  if (!query || query.trim() === '') {
+    searchDropdown.classList.add('hidden');
+    searchDropdown.innerHTML = '';
     return;
   }
 
-  const query = filterQuery.toLowerCase();
+  const queryLower = query.toLowerCase();
+  const matches = accounts.filter(acc =>
+    acc.handle.toLowerCase().includes(queryLower) ||
+    (acc.name && acc.name.toLowerCase().includes(queryLower))
+  );
 
-  // Search from current position forward
-  for (let i = currentIndex; i < accounts.length; i++) {
-    if (accounts[i].handle.toLowerCase().includes(query) ||
-        (accounts[i].name && accounts[i].name.toLowerCase().includes(query))) {
-      currentIndex = i;
-      console.log(`[FollowSweep] Search: jumped to @${accounts[i].handle} at index ${i}`);
-      return;
-    }
+  if (matches.length === 0) {
+    searchDropdown.classList.add('hidden');
+    searchDropdown.innerHTML = '';
+    return;
   }
 
-  // If not found forward, search from beginning
-  for (let i = 0; i < currentIndex; i++) {
-    if (accounts[i].handle.toLowerCase().includes(query) ||
-        (accounts[i].name && accounts[i].name.toLowerCase().includes(query))) {
-      currentIndex = i;
-      console.log(`[FollowSweep] Search: jumped to @${accounts[i].handle} at index ${i}`);
-      return;
-    }
-  }
+  // Limit to 10 results
+  const limitedMatches = matches.slice(0, 10);
 
-  // No match found
-  console.log(`[FollowSweep] Search: no match found for "${query}"`);
+  searchDropdown.innerHTML = limitedMatches.map((acc, idx) => {
+    const accountIndex = accounts.findIndex(a => a.handle === acc.handle);
+    return `
+      <div class="search-dropdown-item" data-index="${accountIndex}">
+        <img src="${acc.avatar || 'default-avatar.png'}" alt="${acc.handle}">
+        <div class="search-dropdown-item-info">
+          <div class="search-dropdown-item-name">${acc.name || acc.handle}</div>
+          <div class="search-dropdown-item-handle">@${acc.handle}</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  searchDropdown.classList.remove('hidden');
+
+  // Add click handlers to dropdown items
+  const items = searchDropdown.querySelectorAll('.search-dropdown-item');
+  items.forEach(item => {
+    item.addEventListener('click', async (e) => {
+      const index = parseInt(item.getAttribute('data-index'));
+      currentIndex = index;
+      searchInput.value = '';
+      searchDropdown.classList.add('hidden');
+      searchDropdown.innerHTML = '';
+      await saveAccounts();
+      await updateUI();
+    });
+  });
 }
+
+// Hide dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  if (searchInput && searchDropdown && !searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+    searchDropdown.classList.add('hidden');
+  }
+});
 
 // Update UI
 async function updateUI() {
@@ -244,19 +272,22 @@ function setupEventListeners() {
     }
   });
 
-  searchInput.addEventListener('input', async (e) => {
-    filterQuery = e.target.value;
-    applyFilter();
-    await updateUI();
+  searchInput.addEventListener('input', (e) => {
+    const query = e.target.value;
+    showSearchDropdown(query);
   });
 
-  searchInput.addEventListener('keydown', async (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      filterQuery = e.target.value;
-      applyFilter();
-      await updateUI();
-      searchInput.blur(); // Remove focus from input
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      searchInput.value = '';
+      searchDropdown.classList.add('hidden');
+      searchDropdown.innerHTML = '';
+    }
+  });
+
+  searchInput.addEventListener('focus', (e) => {
+    if (e.target.value) {
+      showSearchDropdown(e.target.value);
     }
   });
 

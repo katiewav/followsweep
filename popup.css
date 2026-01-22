@@ -199,17 +199,84 @@ h1 {
 }
 
 /* Search */
+.search-container {
+  position: relative;
+  width: 100%;
+}
+
 .search-input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #cfd9de;
   border-radius: 20px;
   font-size: 14px;
+  box-sizing: border-box;
 }
 
 .search-input:focus {
   outline: none;
   border-color: #1d9bf0;
+}
+
+.search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background-color: white;
+  border: 1px solid #cfd9de;
+  border-radius: 8px;
+  margin-top: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.search-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eff3f4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.search-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.search-dropdown-item:hover {
+  background-color: #f7f9f9;
+}
+
+.search-dropdown-item img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.search-dropdown-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-dropdown-item-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f1419;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-dropdown-item-handle {
+  font-size: 12px;
+  color: #536471;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Account Card */

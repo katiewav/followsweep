@@ -54,7 +54,10 @@
 
     <!-- Search/Filter Section -->
     <section id="filterSection" class="section">
-      <input type="text" id="searchInput" placeholder="Search by handle or name..." class="search-input">
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search by handle or name..." class="search-input" autocomplete="off">
+        <div id="searchDropdown" class="search-dropdown hidden"></div>
+      </div>
     </section>
 
     <!-- Review Section -->
