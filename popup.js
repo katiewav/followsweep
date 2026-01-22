@@ -73,8 +73,6 @@ async function loadAccounts() {
     const currentAccount = accounts[currentIndex];
     console.log(`[FollowSweep Popup] Current account: @${currentAccount.handle}, status: ${currentAccount.status || 'pending'}`);
   }
-
-  applyFilter();
 }
 
 // Save accounts to storage
