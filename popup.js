@@ -115,8 +115,9 @@ function showSearchDropdown(query) {
   searchDropdown.innerHTML = uniqueMatches.map((acc) => {
     // Find the index when building the dropdown for stable reference
     const accountIndex = accounts.findIndex(a => a.handle === acc.handle);
+    console.log(`[Search Dropdown] Searched: @${acc.handle}, Found index: ${accountIndex}, Account at that index: @${accounts[accountIndex]?.handle}`);
     return `
-      <div class="search-dropdown-item" data-index="${accountIndex}">
+      <div class="search-dropdown-item" data-index="${accountIndex}" data-handle="${acc.handle}">
         <img src="${acc.avatar || 'default-avatar.png'}" alt="${acc.handle}">
         <div class="search-dropdown-item-info">
           <div class="search-dropdown-item-name">${acc.name || acc.handle}</div>
@@ -286,6 +287,9 @@ function setupEventListeners() {
     if (dropdownItem) {
       e.stopPropagation(); // Prevent click-outside handler from firing
       const index = parseInt(dropdownItem.getAttribute('data-index'));
+      const handle = dropdownItem.getAttribute('data-handle');
+
+      console.log(`[Search Click] Clicked @${handle}, Using index: ${index}, Account at index: @${accounts[index]?.handle}`);
 
       if (index !== -1 && index < accounts.length) {
         currentIndex = index;
