@@ -119,20 +119,6 @@ function showSearchDropdown(query) {
   }).join('');
 
   searchDropdown.classList.remove('hidden');
-
-  // Add click handlers to dropdown items
-  const items = searchDropdown.querySelectorAll('.search-dropdown-item');
-  items.forEach(item => {
-    item.addEventListener('click', async (e) => {
-      const index = parseInt(item.getAttribute('data-index'));
-      currentIndex = index;
-      searchInput.value = '';
-      searchDropdown.classList.add('hidden');
-      searchDropdown.innerHTML = '';
-      await saveAccounts();
-      await updateUI();
-    });
-  });
 }
 
 // Update UI
@@ -283,6 +269,21 @@ function setupEventListeners() {
   searchInput.addEventListener('focus', (e) => {
     if (e.target.value) {
       showSearchDropdown(e.target.value);
+    }
+  });
+
+  // Handle dropdown item clicks using event delegation
+  searchDropdown.addEventListener('click', async (e) => {
+    const dropdownItem = e.target.closest('.search-dropdown-item');
+    if (dropdownItem) {
+      e.stopPropagation(); // Prevent click-outside handler from firing
+      const index = parseInt(dropdownItem.getAttribute('data-index'));
+      currentIndex = index;
+      searchInput.value = '';
+      searchDropdown.classList.add('hidden');
+      searchDropdown.innerHTML = '';
+      await saveAccounts();
+      await updateUI();
     }
   });
 
