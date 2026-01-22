@@ -14,7 +14,7 @@
 
   let isScanning = false;
   let scanTimeout = null;
-  const SCROLL_DELAY = 1000; // ms between scrolls
+  const SCROLL_DELAY = 1500; // ms between scrolls (increased for better loading)
   const SCAN_TIMEOUT = 1200000; // 20 minutes total timeout (for large following lists)
   const SCROLL_AMOUNT = 1000; // pixels to scroll
 
@@ -60,7 +60,7 @@
     const collectedAccounts = new Map(); // Use Map to dedupe by handle
     let scrollAttempts = 0;
     let noNewAccountsCount = 0;
-    const MAX_NO_NEW_ACCOUNTS = 3; // Stop if no new accounts after 3 scrolls
+    const MAX_NO_NEW_ACCOUNTS = 10; // Stop if no new accounts after 10 scrolls (increased for large lists)
 
     while (isScanning && collectedAccounts.size < maxAccounts) {
       // Extract accounts from current view
@@ -104,7 +104,7 @@
       await sleep(SCROLL_DELAY);
 
       // Safety check: stop if too many scroll attempts
-      if (scrollAttempts > 100) {
+      if (scrollAttempts > 500) {
         console.log('Too many scroll attempts, stopping');
         break;
       }
