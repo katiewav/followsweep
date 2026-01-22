@@ -102,13 +102,19 @@ function showSearchDropdown(query) {
     return;
   }
 
-  // Limit to 10 results
-  const limitedMatches = matches.slice(0, 10);
+  // Limit to 10 results and deduplicate by handle
+  const seenHandles = new Set();
+  const uniqueMatches = matches.filter(acc => {
+    if (seenHandles.has(acc.handle)) {
+      return false;
+    }
+    seenHandles.add(acc.handle);
+    return true;
+  }).slice(0, 10);
 
-  searchDropdown.innerHTML = limitedMatches.map((acc) => {
-    // Use indexOf to find the exact object reference in the accounts array
-    // This prevents issues with duplicate handles
-    const accountIndex = accounts.indexOf(acc);
+  searchDropdown.innerHTML = uniqueMatches.map((acc) => {
+    // Find the index when building the dropdown for stable reference
+    const accountIndex = accounts.findIndex(a => a.handle === acc.handle);
     return `
       <div class="search-dropdown-item" data-index="${accountIndex}">
         <img src="${acc.avatar || 'default-avatar.png'}" alt="${acc.handle}">
@@ -280,12 +286,17 @@ function setupEventListeners() {
     if (dropdownItem) {
       e.stopPropagation(); // Prevent click-outside handler from firing
       const index = parseInt(dropdownItem.getAttribute('data-index'));
-      currentIndex = index;
-      searchInput.value = '';
-      searchDropdown.classList.add('hidden');
-      searchDropdown.innerHTML = '';
-      await saveAccounts();
-      await updateUI();
+
+      if (index !== -1 && index < accounts.length) {
+        currentIndex = index;
+        searchInput.value = '';
+        searchDropdown.classList.add('hidden');
+        searchDropdown.innerHTML = '';
+        await saveAccounts();
+        await updateUI();
+      } else {
+        console.error(`Invalid account index: ${index}`);
+      }
     }
   });
 
