@@ -105,8 +105,10 @@ function showSearchDropdown(query) {
   // Limit to 10 results
   const limitedMatches = matches.slice(0, 10);
 
-  searchDropdown.innerHTML = limitedMatches.map((acc, idx) => {
-    const accountIndex = accounts.findIndex(a => a.handle === acc.handle);
+  searchDropdown.innerHTML = limitedMatches.map((acc) => {
+    // Use indexOf to find the exact object reference in the accounts array
+    // This prevents issues with duplicate handles
+    const accountIndex = accounts.indexOf(acc);
     return `
       <div class="search-dropdown-item" data-index="${accountIndex}">
         <img src="${acc.avatar || 'default-avatar.png'}" alt="${acc.handle}">
