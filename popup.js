@@ -4,42 +4,53 @@ let currentIndex = 0;
 let filteredAccounts = [];
 let filterQuery = '';
 
-// DOM elements
-const scanBtn = document.getElementById('scanBtn');
-const scanStatus = document.getElementById('scanStatus');
-const scanProgress = document.getElementById('scanProgress');
-const scanProgressBar = document.getElementById('scanProgressBar');
-const maxAccountsInput = document.getElementById('maxAccounts');
+// DOM elements - will be initialized after DOM is ready
+let scanBtn, scanStatus, scanProgress, scanProgressBar, maxAccountsInput;
+let statTotal, statReviewed, statKept, statUnfollow;
+let searchInput, accountCard, noAccountsMessage, completedMessage, reviewControls;
+let accountAvatar, accountName, accountHandle, accountBio, accountProgress;
+let backBtn, skipBtn, keepBtn, unfollowBtn;
+let exportBtn, clearBtn;
 
-const statTotal = document.getElementById('statTotal');
-const statReviewed = document.getElementById('statReviewed');
-const statKept = document.getElementById('statKept');
-const statUnfollow = document.getElementById('statUnfollow');
+// Initialize DOM element references
+function initDOMElements() {
+  scanBtn = document.getElementById('scanBtn');
+  scanStatus = document.getElementById('scanStatus');
+  scanProgress = document.getElementById('scanProgress');
+  scanProgressBar = document.getElementById('scanProgressBar');
+  maxAccountsInput = document.getElementById('maxAccounts');
 
-const searchInput = document.getElementById('searchInput');
-const accountCard = document.getElementById('accountCard');
-const noAccountsMessage = document.getElementById('noAccountsMessage');
-const completedMessage = document.getElementById('completedMessage');
-const reviewControls = document.getElementById('reviewControls');
+  statTotal = document.getElementById('statTotal');
+  statReviewed = document.getElementById('statReviewed');
+  statKept = document.getElementById('statKept');
+  statUnfollow = document.getElementById('statUnfollow');
 
-const accountAvatar = document.getElementById('accountAvatar');
-const accountName = document.getElementById('accountName');
-const accountHandle = document.getElementById('accountHandle');
-const accountBio = document.getElementById('accountBio');
-const accountProgress = document.getElementById('accountProgress');
+  searchInput = document.getElementById('searchInput');
+  accountCard = document.getElementById('accountCard');
+  noAccountsMessage = document.getElementById('noAccountsMessage');
+  completedMessage = document.getElementById('completedMessage');
+  reviewControls = document.getElementById('reviewControls');
 
-const backBtn = document.getElementById('backBtn');
-const skipBtn = document.getElementById('skipBtn');
-const keepBtn = document.getElementById('keepBtn');
-const unfollowBtn = document.getElementById('unfollowBtn');
+  accountAvatar = document.getElementById('accountAvatar');
+  accountName = document.getElementById('accountName');
+  accountHandle = document.getElementById('accountHandle');
+  accountBio = document.getElementById('accountBio');
+  accountProgress = document.getElementById('accountProgress');
 
-const exportBtn = document.getElementById('exportBtn');
-const clearBtn = document.getElementById('clearBtn');
+  backBtn = document.getElementById('backBtn');
+  skipBtn = document.getElementById('skipBtn');
+  keepBtn = document.getElementById('keepBtn');
+  unfollowBtn = document.getElementById('unfollowBtn');
+
+  exportBtn = document.getElementById('exportBtn');
+  clearBtn = document.getElementById('clearBtn');
+}
 
 // Initialize
 async function init() {
+  initDOMElements();
   await loadAccounts();
-  updateUI();
+  await updateUI();
   setupEventListeners();
 }
 
@@ -87,9 +98,9 @@ function applyFilter() {
 }
 
 // Update UI
-function updateUI() {
+async function updateUI() {
   updateStats();
-  updateAccountCard();
+  await updateAccountCard();
 }
 
 // Update statistics
@@ -107,7 +118,7 @@ function updateStats() {
 }
 
 // Update account card display
-function updateAccountCard() {
+async function updateAccountCard() {
   if (accounts.length === 0) {
     accountCard.classList.add('hidden');
     reviewControls.classList.add('hidden');
@@ -126,16 +137,38 @@ function updateAccountCard() {
     return;
   }
 
-  // Find next pending account
-  let nextIndex = currentIndex;
-  for (let i = 0; i < accounts.length; i++) {
-    const idx = (currentIndex + i) % accounts.length;
-    if (!accounts[idx].status || accounts[idx].status === 'pending') {
-      nextIndex = idx;
-      break;
+  // If current account is not pending, find the next pending account
+  // This handles the case where popup reopens after a decision
+  let indexChanged = false;
+  if (accounts[currentIndex] && accounts[currentIndex].status && accounts[currentIndex].status !== 'pending') {
+    // Current account has been reviewed, find next pending
+    let found = false;
+    for (let i = 1; i < accounts.length; i++) {
+      const idx = (currentIndex + i) % accounts.length;
+      if (!accounts[idx].status || accounts[idx].status === 'pending') {
+        currentIndex = idx;
+        indexChanged = true;
+        found = true;
+        break;
+      }
+    }
+
+    // If no pending accounts found after current, check from beginning
+    if (!found) {
+      for (let i = 0; i < currentIndex; i++) {
+        if (!accounts[i].status || accounts[i].status === 'pending') {
+          currentIndex = i;
+          indexChanged = true;
+          break;
+        }
+      }
     }
   }
-  currentIndex = nextIndex;
+
+  // Save the updated index if it changed during the search
+  if (indexChanged) {
+    await saveAccounts();
+  }
 
   const account = accounts[currentIndex];
 
@@ -148,7 +181,7 @@ function updateAccountCard() {
   accountAvatar.alt = account.name || account.handle;
   accountName.textContent = account.name || account.handle;
   accountHandle.textContent = '@' + account.handle;
-  accountBio.textContent = account.bio || 'No bio available';
+  accountBio.textContent = account.bio || '(No bio found)';
   accountProgress.textContent = `Account ${currentIndex + 1} of ${accounts.length}`;
 
   // Update button states
@@ -167,10 +200,10 @@ function setupEventListeners() {
   exportBtn.addEventListener('click', handleExport);
   clearBtn.addEventListener('click', handleClear);
 
-  searchInput.addEventListener('input', (e) => {
+  searchInput.addEventListener('input', async (e) => {
     filterQuery = e.target.value;
     applyFilter();
-    updateUI();
+    await updateUI();
   });
 
   // Keyboard shortcuts
@@ -278,7 +311,7 @@ async function handleScanComplete(data) {
     scanProgress.classList.add('hidden');
   }, 2000);
 
-  updateUI();
+  await updateUI();
 }
 
 // Handle scan error
@@ -341,7 +374,7 @@ async function handleDecision(decision) {
   }
 
   await saveAccounts();
-  updateUI();
+  await updateUI();
 }
 
 // Handle export to CSV
@@ -383,8 +416,13 @@ async function handleClear() {
   searchInput.value = '';
 
   await chrome.storage.local.clear();
-  updateUI();
+  await updateUI();
 }
 
-// Initialize on load
-init();
+// Initialize on load - wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  // DOM is already ready
+  init();
+}

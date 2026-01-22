@@ -116,52 +116,38 @@
   // Extract account information from DOM
   function extractAccountsFromDOM() {
     const accounts = [];
-
-    // X.com uses a feed structure with user cells
-    // We need to find all user cell containers in the following list
-
-    // Strategy 1: Find all links that match profile URL pattern
-    // Profile links follow pattern: /handle (not /handle/following, /handle/followers, etc.)
-    const profileLinks = document.querySelectorAll('a[href^="/"][role="link"]');
-
     const seenHandles = new Set();
 
-    for (const link of profileLinks) {
-      const href = link.getAttribute('href');
+    // X.com uses a feed structure with user cells
+    // ONLY extract from UserCell elements (the actual Following list items)
+    // This prevents capturing @mentions from bios or "Followed by" chips
 
-      // Match pattern: /handle (single segment, no trailing paths)
-      // Exclude: /home, /explore, /notifications, /messages, /i/, etc.
-      const match = href.match(/^\/([a-zA-Z0-9_]+)$/);
-      if (!match) continue;
-
-      const handle = match[1];
-
-      // Exclude system paths
-      const systemPaths = ['home', 'explore', 'notifications', 'messages', 'compose', 'i', 'settings'];
-      if (systemPaths.includes(handle.toLowerCase())) continue;
-
-      // Skip if already seen
-      if (seenHandles.has(handle)) continue;
-
-      // Find the containing user cell (usually a few parents up)
-      const userCell = findUserCell(link);
-      if (!userCell) continue;
-
-      // Extract account information
-      const account = extractAccountInfo(userCell, handle);
-      if (account) {
-        accounts.push(account);
-        seenHandles.add(handle);
-      }
-    }
-
-    // Strategy 2: Look for elements with data-testid="UserCell"
+    // Primary Strategy: Look for elements with data-testid="UserCell"
+    // This is the most reliable selector for actual Following list items
     const userCells = document.querySelectorAll('[data-testid="UserCell"]');
+
     for (const cell of userCells) {
       const account = extractAccountFromUserCell(cell);
       if (account && !seenHandles.has(account.handle)) {
-        accounts.push(account);
-        seenHandles.add(account.handle);
+        // Verify this is actually a Following list item by checking for presence
+        // of profile link structure (not just mentions)
+        if (isPrimaryAccountCell(cell, account.handle)) {
+          accounts.push(account);
+          seenHandles.add(account.handle);
+        }
+      }
+    }
+
+    // Fallback Strategy: If no UserCells found, look for user containers
+    // in the timeline/feed structure (less common, but handles UI variations)
+    if (accounts.length === 0) {
+      const timelineItems = document.querySelectorAll('[data-testid="cellInnerDiv"]');
+      for (const item of timelineItems) {
+        const account = extractAccountFromTimelineItem(item);
+        if (account && !seenHandles.has(account.handle)) {
+          accounts.push(account);
+          seenHandles.add(account.handle);
+        }
       }
     }
 
@@ -169,35 +155,62 @@
     return accounts;
   }
 
-  // Find user cell container
-  function findUserCell(element) {
-    let current = element;
-    let depth = 0;
-    const maxDepth = 10;
+  // Verify this is a primary account cell, not a mention or suggestion
+  function isPrimaryAccountCell(cell, handle) {
+    // Look for the primary profile link - should be one of the first links in the cell
+    // and should point directly to /@handle
+    const links = cell.querySelectorAll('a[href^="/"][role="link"]');
 
-    while (current && depth < maxDepth) {
-      // Look for indicators of a user cell
-      // Usually has role="button" or contains multiple text elements
-      if (current.getAttribute('data-testid') === 'UserCell') {
-        return current;
-      }
+    if (links.length === 0) return false;
 
-      // Check if this looks like a cell container (has multiple children, reasonable height)
-      if (current.children && current.children.length > 2) {
-        const style = window.getComputedStyle(current);
-        const height = parseInt(style.height);
-        if (height > 50 && height < 500) {
-          return current;
+    // The first link in a UserCell is typically the primary profile link
+    const primaryLink = links[0];
+    const href = primaryLink.getAttribute('href');
+
+    // Verify it matches our handle exactly
+    const match = href.match(/^\/([a-zA-Z0-9_]+)$/);
+    if (!match || match[1] !== handle) {
+      return false;
+    }
+
+    // Additional validation: check if this cell has user info structure
+    // (avatar + name + handle, typical of Following list items)
+    const hasAvatar = cell.querySelector('img[src*="profile_images"]') !== null;
+    const hasName = cell.querySelector('span') !== null;
+
+    return hasAvatar && hasName;
+  }
+
+  // Extract account from timeline item (fallback for different UI structures)
+  function extractAccountFromTimelineItem(item) {
+    try {
+      // Find first profile link that matches pattern
+      const profileLinks = item.querySelectorAll('a[href^="/"][role="link"]');
+
+      for (const link of profileLinks) {
+        const href = link.getAttribute('href');
+        const match = href.match(/^\/([a-zA-Z0-9_]+)$/);
+
+        if (match) {
+          const handle = match[1];
+
+          // Exclude system paths
+          const systemPaths = ['home', 'explore', 'notifications', 'messages', 'compose', 'i', 'settings', 'search', 'hashtag'];
+          if (systemPaths.includes(handle.toLowerCase())) continue;
+
+          // This should be the primary profile link
+          return extractAccountInfo(item, handle);
         }
       }
 
-      current = current.parentElement;
-      depth++;
+      return null;
+    } catch (error) {
+      console.error('Error extracting from timeline item:', error);
+      return null;
     }
-
-    return null;
   }
 
+  // Find user cell container
   // Extract account info from user cell
   function extractAccountInfo(cell, handle) {
     try {
@@ -230,15 +243,50 @@
       }
 
       // Find bio (usually in a div with specific structure)
+      // IMPORTANT: Exclude button labels and action text
       let bio = '';
       const bioElements = cell.querySelectorAll('div[dir="auto"]');
       for (const div of bioElements) {
         const text = div.textContent.trim();
-        // Bio is usually longer text that's not the name or handle
-        if (text && text !== name && !text.includes('@' + handle) && text.length > 20) {
-          bio = text;
-          break;
+
+        // Skip if text is empty or too short
+        if (!text || text.length < 10) continue;
+
+        // Skip if this is the name or handle
+        if (text === name || text.includes('@' + handle)) continue;
+
+        // CRITICAL: Skip if this div is inside a button or has button-related text
+        // Check if this element or any parent is a button
+        let isInsideButton = false;
+        let current = div;
+        for (let i = 0; i < 5; i++) {
+          if (!current) break;
+          if (current.tagName === 'BUTTON' || current.getAttribute('role') === 'button') {
+            isInsideButton = true;
+            break;
+          }
+          current = current.parentElement;
         }
+        if (isInsideButton) continue;
+
+        // CRITICAL: Filter out follow/unfollow button labels
+        // These often contain phrases like "Following", "Unfollow", "Click to unfollow @user"
+        if (/\b(following|unfollow|follow)\b/i.test(text)) continue;
+
+        // CRITICAL: Filter out other common button/action text patterns
+        if (/\b(click to|subscribed|verified|joined)\b/i.test(text)) continue;
+
+        // Skip if text contains mostly symbols or looks like metadata
+        if (/^[@#]/.test(text)) continue;
+
+        // This looks like a valid bio - take it
+        bio = text;
+        break;
+      }
+
+      // Final defensive check: if bio somehow still contains follow-related text, clear it
+      if (bio && /\b(following|unfollow|follow|click to)\b/i.test(bio)) {
+        bio = '';
       }
 
       return {
@@ -257,17 +305,38 @@
   // Extract account from UserCell with data-testid
   function extractAccountFromUserCell(cell) {
     try {
-      // Find profile link
-      const profileLink = cell.querySelector('a[href^="/"][role="link"]');
-      if (!profileLink) return null;
+      // Find the PRIMARY profile link (first one that matches profile pattern)
+      // This avoids capturing @mentions in bios which appear later in the DOM
+      const profileLinks = cell.querySelectorAll('a[href^="/"][role="link"]');
+      if (!profileLinks || profileLinks.length === 0) return null;
 
-      const href = profileLink.getAttribute('href');
-      const match = href.match(/^\/([a-zA-Z0-9_]+)$/);
-      if (!match) return null;
+      // Find the first valid profile link that matches our pattern
+      for (const link of profileLinks) {
+        const href = link.getAttribute('href');
 
-      const handle = match[1];
+        // Match pattern: /handle (single segment, no trailing paths)
+        const match = href.match(/^\/([a-zA-Z0-9_]+)$/);
+        if (!match) continue;
 
-      return extractAccountInfo(cell, handle);
+        const handle = match[1];
+
+        // Exclude system paths and special URLs
+        const systemPaths = ['home', 'explore', 'notifications', 'messages', 'compose', 'i', 'settings', 'search', 'hashtag', 'intent'];
+        if (systemPaths.includes(handle.toLowerCase())) continue;
+
+        // Check if this link is the primary profile link (has avatar nearby or is first link)
+        // Primary profile links typically have the avatar image as a child or sibling
+        const hasAvatarNearby = link.querySelector('img') ||
+                                 link.parentElement?.querySelector('img') ||
+                                 link.previousElementSibling?.querySelector('img');
+
+        // If this is the first valid profile link OR it has an avatar, it's the primary one
+        if (hasAvatarNearby || link === profileLinks[0]) {
+          return extractAccountInfo(cell, handle);
+        }
+      }
+
+      return null;
     } catch (error) {
       console.error('Error extracting from UserCell:', error);
       return null;
