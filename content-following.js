@@ -15,7 +15,7 @@
   let isScanning = false;
   let scanTimeout = null;
   const SCROLL_DELAY = 1000; // ms between scrolls
-  const SCAN_TIMEOUT = 60000; // 60 seconds total timeout
+  const SCAN_TIMEOUT = 1200000; // 20 minutes total timeout (for large following lists)
   const SCROLL_AMOUNT = 1000; // pixels to scroll
 
   // Listen for messages from popup

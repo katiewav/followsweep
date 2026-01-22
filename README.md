@@ -79,7 +79,7 @@ This extension provides guidance and organization but requires **you** to manual
 5. Wait for the scan to complete
    - The extension will automatically scroll
    - Progress updates show in real-time
-   - Scan stops when limit reached or timeout (60s)
+   - Scan stops when limit reached or timeout (20 minutes)
 
 ### Step 2: Review Accounts
 
