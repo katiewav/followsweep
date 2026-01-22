@@ -8,7 +8,7 @@ let filterQuery = '';
 let scanBtn, scanStatus, scanProgress, scanProgressBar, maxAccountsInput;
 let statTotal, statReviewed, statKept, statUnfollow;
 let searchInput, accountCard, noAccountsMessage, completedMessage, reviewControls;
-let accountAvatar, accountName, accountHandle, accountBio, accountProgress;
+let accountAvatar, accountName, accountHandle, accountBio, accountProgress, followsYouBadge;
 let backBtn, skipBtn, keepBtn, unfollowBtn;
 let exportBtn, clearBtn;
 
@@ -36,6 +36,7 @@ function initDOMElements() {
   accountHandle = document.getElementById('accountHandle');
   accountBio = document.getElementById('accountBio');
   accountProgress = document.getElementById('accountProgress');
+  followsYouBadge = document.getElementById('followsYouBadge');
 
   backBtn = document.getElementById('backBtn');
   skipBtn = document.getElementById('skipBtn');
@@ -60,9 +61,16 @@ async function loadAccounts() {
   accounts = data.accounts || [];
   currentIndex = data.currentIndex || 0;
 
+  console.log(`[FollowSweep Popup] Loaded from storage: ${accounts.length} accounts, currentIndex: ${currentIndex}`);
+
   // Ensure currentIndex is valid
   if (currentIndex >= accounts.length) {
     currentIndex = 0;
+  }
+
+  if (accounts.length > 0 && currentIndex < accounts.length) {
+    const currentAccount = accounts[currentIndex];
+    console.log(`[FollowSweep Popup] Current account: @${currentAccount.handle}, status: ${currentAccount.status || 'pending'}`);
   }
 
   applyFilter();
@@ -76,25 +84,34 @@ async function saveAccounts() {
 // Apply search filter
 function applyFilter() {
   if (!filterQuery) {
-    filteredAccounts = accounts;
-  } else {
-    const query = filterQuery.toLowerCase();
-    filteredAccounts = accounts.filter(acc =>
-      acc.handle.toLowerCase().includes(query) ||
-      (acc.name && acc.name.toLowerCase().includes(query))
-    );
+    // No filter, don't change anything
+    return;
   }
 
-  // Find current account in filtered list
-  if (filteredAccounts.length > 0 && currentIndex < accounts.length) {
-    const currentAccount = accounts[currentIndex];
-    const filteredIndex = filteredAccounts.findIndex(a => a.handle === currentAccount.handle);
-    if (filteredIndex === -1 && filteredAccounts.length > 0) {
-      // Current account not in filtered list, move to first filtered account
-      const firstFiltered = filteredAccounts[0];
-      currentIndex = accounts.findIndex(a => a.handle === firstFiltered.handle);
+  const query = filterQuery.toLowerCase();
+
+  // Search from current position forward
+  for (let i = currentIndex; i < accounts.length; i++) {
+    if (accounts[i].handle.toLowerCase().includes(query) ||
+        (accounts[i].name && accounts[i].name.toLowerCase().includes(query))) {
+      currentIndex = i;
+      console.log(`[FollowSweep] Search: jumped to @${accounts[i].handle} at index ${i}`);
+      return;
     }
   }
+
+  // If not found forward, search from beginning
+  for (let i = 0; i < currentIndex; i++) {
+    if (accounts[i].handle.toLowerCase().includes(query) ||
+        (accounts[i].name && accounts[i].name.toLowerCase().includes(query))) {
+      currentIndex = i;
+      console.log(`[FollowSweep] Search: jumped to @${accounts[i].handle} at index ${i}`);
+      return;
+    }
+  }
+
+  // No match found
+  console.log(`[FollowSweep] Search: no match found for "${query}"`);
 }
 
 // Update UI
@@ -141,11 +158,14 @@ async function updateAccountCard() {
   // This handles the case where popup reopens after a decision
   let indexChanged = false;
   if (accounts[currentIndex] && accounts[currentIndex].status && accounts[currentIndex].status !== 'pending') {
+    console.log(`[FollowSweep Popup] Current account @${accounts[currentIndex].handle} has status: ${accounts[currentIndex].status}, finding next pending...`);
+
     // Current account has been reviewed, find next pending
     let found = false;
     for (let i = 1; i < accounts.length; i++) {
       const idx = (currentIndex + i) % accounts.length;
       if (!accounts[idx].status || accounts[idx].status === 'pending') {
+        console.log(`[FollowSweep Popup] Found next pending account at index ${idx}: @${accounts[idx].handle}`);
         currentIndex = idx;
         indexChanged = true;
         found = true;
@@ -157,16 +177,24 @@ async function updateAccountCard() {
     if (!found) {
       for (let i = 0; i < currentIndex; i++) {
         if (!accounts[i].status || accounts[i].status === 'pending') {
+          console.log(`[FollowSweep Popup] Found pending account from start at index ${i}: @${accounts[i].handle}`);
           currentIndex = i;
           indexChanged = true;
           break;
         }
       }
     }
+
+    if (!found && indexChanged === false) {
+      console.log(`[FollowSweep Popup] No pending accounts found`);
+    }
+  } else {
+    console.log(`[FollowSweep Popup] Current account at index ${currentIndex} is pending, showing it`);
   }
 
   // Save the updated index if it changed during the search
   if (indexChanged) {
+    console.log(`[FollowSweep Popup] Saving updated currentIndex: ${currentIndex}`);
     await saveAccounts();
   }
 
@@ -184,6 +212,13 @@ async function updateAccountCard() {
   accountBio.textContent = account.bio || '(No bio found)';
   accountProgress.textContent = `Account ${currentIndex + 1} of ${accounts.length}`;
 
+  // Show/hide "Follows you" badge
+  if (account.followsYou) {
+    followsYouBadge.classList.remove('hidden');
+  } else {
+    followsYouBadge.classList.add('hidden');
+  }
+
   // Update button states
   backBtn.disabled = currentIndex === 0;
 }
@@ -200,10 +235,29 @@ function setupEventListeners() {
   exportBtn.addEventListener('click', handleExport);
   clearBtn.addEventListener('click', handleClear);
 
+  // Click account card to open profile in new tab
+  accountCard.addEventListener('click', () => {
+    if (accounts.length > 0 && accounts[currentIndex]) {
+      const account = accounts[currentIndex];
+      const profileUrl = `https://x.com/${account.handle}`;
+      chrome.tabs.create({ url: profileUrl });
+    }
+  });
+
   searchInput.addEventListener('input', async (e) => {
     filterQuery = e.target.value;
     applyFilter();
     await updateUI();
+  });
+
+  searchInput.addEventListener('keydown', async (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      filterQuery = e.target.value;
+      applyFilter();
+      await updateUI();
+      searchInput.blur(); // Remove focus from input
+    }
   });
 
   // Keyboard shortcuts
@@ -341,23 +395,31 @@ async function handleDecision(decision) {
   if (accounts.length === 0) return;
 
   const account = accounts[currentIndex];
+  console.log(`[FollowSweep Popup] Decision "${decision}" for @${account.handle} at index ${currentIndex}`);
 
   switch(decision) {
     case 'keep':
       account.status = 'kept';
       account.decidedAt = Date.now();
       currentIndex = Math.min(currentIndex + 1, accounts.length - 1);
+      console.log(`[FollowSweep Popup] Marked as kept, moved to index ${currentIndex}`);
       break;
 
     case 'unfollow':
       account.status = 'unfollow_requested';
       account.decidedAt = Date.now();
-
-      // Open profile in new tab
-      const profileUrl = `https://x.com/${account.handle}`;
-      await chrome.tabs.create({ url: profileUrl });
+      console.log(`[FollowSweep Popup] Marked as unfollow_requested`);
 
       currentIndex = Math.min(currentIndex + 1, accounts.length - 1);
+      console.log(`[FollowSweep Popup] Moved to index ${currentIndex}`);
+
+      // CRITICAL: Save BEFORE opening new tab, because popup will close immediately
+      console.log(`[FollowSweep Popup] Saving before opening profile tab`);
+      await saveAccounts();
+
+      // Open profile in new tab (this will close the popup)
+      const profileUrl = `https://x.com/${account.handle}`;
+      await chrome.tabs.create({ url: profileUrl });
       break;
 
     case 'skip':
@@ -373,8 +435,10 @@ async function handleDecision(decision) {
       break;
   }
 
+  console.log(`[FollowSweep Popup] Saving accounts with currentIndex: ${currentIndex}`);
   await saveAccounts();
   await updateUI();
+  console.log(`[FollowSweep Popup] UI updated after decision`);
 }
 
 // Handle export to CSV
@@ -385,10 +449,11 @@ function handleExport() {
   }
 
   const csv = [
-    ['Handle', 'Name', 'Status', 'Profile URL', 'Decided At'].join(','),
+    ['Handle', 'Name', 'Follows You', 'Status', 'Profile URL', 'Decided At'].join(','),
     ...accounts.map(a => [
       a.handle,
       `"${(a.name || '').replace(/"/g, '""')}"`,
+      a.followsYou ? 'Yes' : 'No',
       a.status || 'pending',
       `https://x.com/${a.handle}`,
       a.decidedAt ? new Date(a.decidedAt).toISOString() : ''

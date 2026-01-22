@@ -178,6 +178,28 @@
     const hasAvatar = cell.querySelector('img[src*="profile_images"]') !== null;
     const hasName = cell.querySelector('span') !== null;
 
+    // CRITICAL: Check for "Following" button to confirm this is someone you actually follow
+    // The button will have aria-label containing "Following" or text content "Following"
+    const buttons = cell.querySelectorAll('button');
+    let hasFollowingButton = false;
+
+    for (const button of buttons) {
+      const ariaLabel = button.getAttribute('aria-label') || '';
+      const textContent = button.textContent || '';
+
+      if (ariaLabel.toLowerCase().includes('following') ||
+          textContent.toLowerCase().includes('following')) {
+        hasFollowingButton = true;
+        console.log(`[FollowSweep] ✓ Verified @${handle} has Following button`);
+        break;
+      }
+    }
+
+    if (!hasFollowingButton) {
+      console.log(`[FollowSweep] ❌ Rejected @${handle} - no Following button (probably a suggestion)`);
+      return false;
+    }
+
     return hasAvatar && hasName;
   }
 
@@ -242,58 +264,97 @@
         }
       }
 
-      // Find bio (usually in a div with specific structure)
-      // IMPORTANT: Exclude button labels and action text
+      // Detect if this account follows you back
+      // X.com shows a "Follows you" badge in the user cell
+      let followsYou = false;
+      const textElements = cell.querySelectorAll('span');
+      for (const span of textElements) {
+        const text = span.textContent.trim().toLowerCase();
+        if (text === 'follows you' || text === 'follows you back') {
+          followsYou = true;
+          console.log(`[FollowSweep] ✓ @${handle} follows you back`);
+          break;
+        }
+      }
+
+      // Find bio - NEW STRATEGY: Look for the bio in the specific structure
+      // X.com bios appear AFTER the handle in a specific div structure
       let bio = '';
-      const bioElements = cell.querySelectorAll('div[dir="auto"]');
-      for (const div of bioElements) {
+
+      // Strategy: Find all div[dir="auto"] and log everything for debugging
+      const allDivs = cell.querySelectorAll('div[dir="auto"]');
+      console.log(`[FollowSweep] === Debugging bio extraction for @${handle} ===`);
+      console.log(`[FollowSweep] Found ${allDivs.length} div[dir="auto"] elements`);
+
+      // Log all candidates
+      allDivs.forEach((div, index) => {
+        const text = div.textContent.trim();
+        console.log(`[FollowSweep] Candidate ${index}: length=${text.length}, text="${text.substring(0, 80)}"`);
+
+        // Check parent structure
+        let parent = div.parentElement;
+        let parentInfo = parent ? parent.tagName : 'none';
+        if (parent && parent.getAttribute('role')) {
+          parentInfo += `[role="${parent.getAttribute('role')}"]`;
+        }
+        console.log(`[FollowSweep]   Parent: ${parentInfo}`);
+      });
+
+      // Now try to find the bio with simpler logic
+      for (const div of allDivs) {
         const text = div.textContent.trim();
 
-        // Skip if text is empty or too short
-        if (!text || text.length < 10) continue;
+        // Must have some content
+        if (!text || text.length < 3) continue;
 
-        // Skip if this is the name or handle
-        if (text === name || text.includes('@' + handle)) continue;
+        // Skip if it matches the display name or handle exactly
+        if (text === name || text === '@' + handle || text === handle) {
+          console.log(`[FollowSweep]   ❌ Skipped (name/handle): "${text.substring(0, 50)}"`);
+          continue;
+        }
 
-        // CRITICAL: Skip if this div is inside a button or has button-related text
-        // Check if this element or any parent is a button
-        let isInsideButton = false;
-        let current = div;
-        for (let i = 0; i < 5; i++) {
-          if (!current) break;
-          if (current.tagName === 'BUTTON' || current.getAttribute('role') === 'button') {
-            isInsideButton = true;
+        // Skip very short "Follows you" text
+        if (text.toLowerCase() === 'follows you' || text.toLowerCase() === 'follows you back') {
+          console.log(`[FollowSweep]   ❌ Skipped (follows you badge): "${text}"`);
+          continue;
+        }
+
+        // Skip button aria-labels that start with "Click to"
+        if (text.startsWith('Click to ')) {
+          console.log(`[FollowSweep]   ❌ Skipped (button aria-label): "${text.substring(0, 50)}"`);
+          continue;
+        }
+
+        // Skip if the immediate parent (1-2 levels up) is a button
+        // Don't reject based on distant button ancestors (UserCell might be in a clickable container)
+        let isDirectlyInButton = false;
+        let elem = div.parentElement;
+        for (let i = 0; i < 2 && elem; i++) {
+          if (elem.tagName === 'BUTTON') {
+            isDirectlyInButton = true;
             break;
           }
-          current = current.parentElement;
+          elem = elem.parentElement;
         }
-        if (isInsideButton) continue;
+        if (isDirectlyInButton) {
+          console.log(`[FollowSweep]   ❌ Skipped (direct button child): "${text.substring(0, 50)}"`);
+          continue;
+        }
 
-        // CRITICAL: Filter out follow/unfollow button labels
-        // These often contain phrases like "Following", "Unfollow", "Click to unfollow @user"
-        if (/\b(following|unfollow|follow)\b/i.test(text)) continue;
-
-        // CRITICAL: Filter out other common button/action text patterns
-        if (/\b(click to|subscribed|verified|joined)\b/i.test(text)) continue;
-
-        // Skip if text contains mostly symbols or looks like metadata
-        if (/^[@#]/.test(text)) continue;
-
-        // This looks like a valid bio - take it
+        // Accept this as the bio
+        console.log(`[FollowSweep]   ✅ SELECTED as bio: "${text.substring(0, 80)}"`);
         bio = text;
         break;
       }
 
-      // Final defensive check: if bio somehow still contains follow-related text, clear it
-      if (bio && /\b(following|unfollow|follow|click to)\b/i.test(bio)) {
-        bio = '';
-      }
+      console.log(`[FollowSweep] === Final bio for @${handle}: "${bio || '(EMPTY)'}" ===`);
 
       return {
         handle,
         name: name || handle,
         avatar,
         bio,
+        followsYou,
         profileUrl: `https://x.com/${handle}`
       };
     } catch (error) {

@@ -26,6 +26,7 @@ This extension provides guidance and organization but requires **you** to manual
 - ✅ **Human-in-the-loop safety**: You must manually confirm all unfollows
 - 🔍 **DOM-based scanning**: No X API, no credentials, no external servers
 - 📊 **Progress tracking**: See total accounts, reviewed, kept, and unfollow requests
+- 🔄 **Mutual follow detection**: See which accounts follow you back
 - ⌨️ **Keyboard shortcuts**: Quick review with K, U, S, B keys
 - 🔎 **Search/filter**: Find accounts by handle or name
 - 💾 **CSV export**: Download your decisions with timestamps
@@ -100,6 +101,7 @@ After scanning, accounts appear one-by-one in the popup:
 - Profile picture
 - Display name
 - Handle (@username)
+- "Follows you" badge (if they follow you back)
 - Bio snippet
 - Progress counter
 
@@ -121,6 +123,7 @@ When you click "Unfollow" on an account:
 - CSV file downloads with columns:
   - Handle
   - Name
+  - Follows You (Yes/No)
   - Status (kept/unfollow_requested/pending)
   - Profile URL
   - Decision timestamp

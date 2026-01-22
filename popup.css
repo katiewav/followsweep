@@ -218,6 +218,12 @@ h1 {
   border-radius: 12px;
   padding: 12px;
   margin-bottom: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.account-card:hover {
+  background-color: #e7f5ff;
 }
 
 .account-header {
@@ -254,6 +260,17 @@ h1 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.follows-you-badge {
+  display: inline-block;
+  background-color: #eff3f4;
+  color: #536471;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-top: 4px;
+  font-weight: 500;
 }
 
 .account-bio {
