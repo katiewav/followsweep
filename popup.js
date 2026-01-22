@@ -3,6 +3,7 @@ let accounts = [];
 let currentIndex = 0;
 let filteredAccounts = [];
 let filterQuery = '';
+let skipToNextPending = true; // Flag to control auto-skip behavior
 
 // DOM elements - will be initialized after DOM is ready
 let scanBtn, scanStatus, scanProgress, scanProgressBar, maxAccountsInput;
@@ -172,8 +173,9 @@ async function updateAccountCard() {
 
   // If current account is not pending, find the next pending account
   // This handles the case where popup reopens after a decision
+  // Skip this behavior if coming from search (skipToNextPending = false)
   let indexChanged = false;
-  if (accounts[currentIndex] && accounts[currentIndex].status && accounts[currentIndex].status !== 'pending') {
+  if (skipToNextPending && accounts[currentIndex] && accounts[currentIndex].status && accounts[currentIndex].status !== 'pending') {
     console.log(`[FollowSweep Popup] Current account @${accounts[currentIndex].handle} has status: ${accounts[currentIndex].status}, finding next pending...`);
 
     // Current account has been reviewed, find next pending
@@ -293,11 +295,13 @@ function setupEventListeners() {
 
       if (index !== -1 && index < accounts.length) {
         currentIndex = index;
+        skipToNextPending = false; // Don't auto-skip when coming from search
         searchInput.value = '';
         searchDropdown.classList.add('hidden');
         searchDropdown.innerHTML = '';
         await saveAccounts();
         await updateUI();
+        skipToNextPending = true; // Re-enable for normal navigation
       } else {
         console.error(`Invalid account index: ${index}`);
       }
