@@ -84,6 +84,8 @@ async function saveAccounts() {
 
 // Show search dropdown with matching accounts
 function showSearchDropdown(query) {
+  if (!searchDropdown) return;
+
   if (!query || query.trim() === '') {
     searchDropdown.classList.add('hidden');
     searchDropdown.innerHTML = '';
@@ -273,8 +275,10 @@ function setupEventListeners() {
   searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       searchInput.value = '';
-      searchDropdown.classList.add('hidden');
-      searchDropdown.innerHTML = '';
+      if (searchDropdown) {
+        searchDropdown.classList.add('hidden');
+        searchDropdown.innerHTML = '';
+      }
     }
   });
 
@@ -286,7 +290,7 @@ function setupEventListeners() {
 
   // Hide dropdown when clicking outside
   document.addEventListener('click', (e) => {
-    if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+    if (searchDropdown && !searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
       searchDropdown.classList.add('hidden');
     }
   });
